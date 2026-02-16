@@ -1,0 +1,6 @@
+{"database":{
+    "database":"users", "username":"my-db-user", "password":"my-db-password",
+  "dialect": "sqlite",
+  "storage": ":memory:",
+  "logging": false}
+}

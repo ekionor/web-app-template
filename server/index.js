@@ -1,5 +1,5 @@
 const app = require("./src/app");
-const sequelize = require("./config/database");
+const sequelize = require("./src/config/database");
 
 sequelize.sync();
 
