@@ -10,7 +10,20 @@ router.post(
     .withMessage("Username cannot be null"),
   check("email")
     .exists({ checkNull: true, checkFalsy: true })
-    .withMessage("Email cannot be null"),
+    .withMessage("Email cannot be null")
+    .bail()
+    .isEmail()
+    .withMessage("Email is not valid")
+    .bail()
+    .custom(async (email) => {
+      const user = await UserService.findByEmail(email);
+      if (user) {
+        throw new Error("Email in use");
+      }
+    }),
+  check("password")
+    .exists({ checkNull: true, checkFalsy: true })
+    .withMessage("Password cannot be null"),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

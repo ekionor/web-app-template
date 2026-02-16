@@ -68,24 +68,6 @@ describe("User Registration", () => {
     expect(body.validationErrors).toBeDefined();
   });
 
-  it("returns Username cannot be null when username is null", async () => {
-    const response = await postUser({
-      ...validUser,
-      username: null,
-    });
-    const body = response.body;
-    expect(body.validationErrors.username).toBe("Username cannot be null");
-  });
-
-  it("returns Email cannot be null when email is null", async () => {
-    const response = await postUser({
-      ...validUser,
-      email: null,
-    });
-    const body = response.body;
-    expect(body.validationErrors.email).toBe("Email cannot be null");
-  });
-
   it("returns errors for both when username and email are null", async () => {
     const response = await postUser({
       ...validUser,
@@ -96,12 +78,30 @@ describe("User Registration", () => {
     expect(Object.keys(body.validationErrors)).toEqual(["username", "email"]);
   });
 
-  it("returns password cannot be null when password is null", async () => {
+  it.each`
+    field         | value         | expectedMessage
+    ${"username"} | ${null}       | ${"Username cannot be null"}
+    ${"email"}    | ${null}       | ${"Email cannot be null"}
+    ${"password"} | ${null}       | ${"Password cannot be null"}
+    ${"email"}    | ${"mail.com"} | ${"Email is not valid"}
+  `(
+    "returns errors for $field when $field is $value",
+    async ({ field, value, expectedMessage }) => {
+      const user = { ...validUser };
+      user[field] = value;
+      const response = await postUser(user);
+      const body = response.body;
+      expect(body.validationErrors[field]).toBe(expectedMessage);
+    },
+  );
+
+  it("returns Email in use when same email is already in use", async () => {
+    await postUser(validUser);
     const response = await postUser({
       ...validUser,
-      password: null,
+      email: validUser.email,
     });
     const body = response.body;
-    expect(body.validationErrors.password).toBe("Password cannot be null");
+    expect(response.body.validationErrors.email).toBe("Email in use");
   });
 });
