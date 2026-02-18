@@ -2,26 +2,52 @@ const request = require("supertest");
 const app = require("../src/app");
 const User = require("../src/user/User");
 const sequelize = require("../src/config/database");
+const SMTPServer = require("smtp-server").SMTPServer;
 
+let lastmail, server;
+let simulatedSmtpFailure = false;
 beforeAll(async () => {
+  server = new SMTPServer({
+    authOptional: true,
+    onData(stream, session, callback) {
+      let mailBody;
+      stream.on("data", (data) => {
+        mailBody += data.toString();
+      });
+      stream.on("end", () => {
+        if (simulatedSmtpFailure) {
+          const err = new Error("Invalid mailbox");
+          err.responseCode = 553;
+          return callback(err);
+        }
+        lastmail = mailBody;
+        callback();
+      });
+    },
+  });
+  await server.listen(8587, "localhost");
   await sequelize.sync();
 });
 
 beforeEach(async () => {
+  simulatedSmtpFailure = false;
   await User.destroy({ truncate: true });
 });
 
+afterAll(async () => {
+  await server.close();
+});
+
+const validUser = {
+  username: "user1",
+  email: "user1@mail.com",
+  password: "P4ssword",
+};
+
+const postUser = (user = validUser) => {
+  return request(app).post("/api/1.0/users").send(user);
+};
 describe("User Registration", () => {
-  const validUser = {
-    username: "user1",
-    email: "user1@mail.com",
-    password: "P4ssword",
-  };
-
-  const postUser = (user = validUser) => {
-    return request(app).post("/api/1.0/users").send(user);
-  };
-
   it("returns 200 when signup request is valid", async () => {
     const response = await postUser();
     expect(response.status).toBe(200);
@@ -103,5 +129,73 @@ describe("User Registration", () => {
     });
     const body = response.body;
     expect(response.body.validationErrors.email).toBe("Email in use");
+  });
+
+  it("creates user in inactive mode", async () => {
+    await postUser();
+    const [user] = await User.findAll();
+    expect(user.inactive).toBe(true);
+  });
+
+  it("creates user in inactive mode even if in request body inactive is set to false", async () => {
+    await postUser({ ...validUser, inactive: false });
+    const [user] = await User.findAll();
+    expect(user.inactive).toBe(true);
+  });
+
+  it("creates an activation token for user", async () => {
+    await postUser();
+    const [user] = await User.findAll();
+    expect(user.activationToken).toBeTruthy();
+  });
+
+  it("sends an account activation email with activation token", async () => {
+    await postUser();
+    const [user] = await User.findAll();
+    expect(lastmail).toContain("user1@mail.com");
+    expect(lastmail).toContain(user.activationToken);
+  });
+
+  it("returns 502 Bad Gateway when sending email fails", async () => {
+    simulatedSmtpFailure = true;
+    const response = await postUser();
+    expect(response.status).toBe(502);
+  });
+
+  it("returns Email failure message when sending email fails", async () => {
+    simulatedSmtpFailure = true;
+    const response = await postUser();
+    expect(response.body.message).toBe("Email failure");
+  });
+
+  it("does not save user to database when activation email fails", async () => {
+    simulatedSmtpFailure = true;
+    await postUser();
+    const users = await User.findAll();
+    expect(users.length).toBe(0);
+  });
+});
+
+describe("Account activation", () => {
+  it("activates the account when correct token is sent", async () => {
+    await postUser();
+    let [user] = await User.findAll();
+    const token = user.activationToken;
+    await request(app)
+      .post("/api/1.0/users/token/" + token)
+      .send();
+    [user] = await User.findAll();
+    expect(user.inactive).toBe(false);
+  });
+
+  it("removes the token from user table after successful activation", async () => {
+    await postUser();
+    let [user] = await User.findAll();
+    const token = user.activationToken;
+    await request(app)
+      .post("/api/1.0/users/token/" + token)
+      .send();
+    [user] = await User.findAll();
+    expect(user.activationToken).toBeFalsy();
   });
 });
