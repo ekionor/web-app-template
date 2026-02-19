@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const UserService = require("./UserService");
 const { check, validationResult } = require("express-validator");
+const ValidationException = require("../error/ValidationException");
 
 router.post(
   "/api/1.0/users",
@@ -24,28 +25,27 @@ router.post(
   check("password")
     .exists({ checkNull: true, checkFalsy: true })
     .withMessage("Password cannot be null"),
-  async (req, res) => {
+  async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      const validationErrors = {};
-      errors.array().forEach((error) => {
-        validationErrors[error.path] = error.msg;
-      });
-
-      return res.status(400).send({ validationErrors });
+      return next(new ValidationException(errors.array()));
     }
     try {
       await UserService.save(req.body);
       return res.send({ message: "User created" });
     } catch (error) {
-      return res.status(502).send({ message: error.message });
+      next(error);
     }
   },
 );
 
-router.post("/api/1.0/users/token/:token", async (req, res) => {
+router.post("/api/1.0/users/token/:token", async (req, res, next) => {
   const token = req.params.token;
-  await UserService.activate(token);
-  return res.send();
+  try {
+    await UserService.activate(token);
+    return res.send({ message: "Account is activated" });
+  } catch (err) {
+    next(err);
+  }
 });
 module.exports = router;

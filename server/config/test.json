@@ -1,6 +1,17 @@
-{"database":{
-    "database":"users", "username":"my-db-user", "password":"my-db-password",
+{
+  "database":
+  {
+  "database":"users",
+  "username":"my-db-user", 
+  "password":"my-db-password",
   "dialect": "sqlite",
   "storage": ":memory:",
-  "logging": false}
+  "logging": false
+  },
+  "mail": 
+  {
+  "host": "localhost",
+  "port": 8587,
+  "tls": { "rejectUnauthorized": false }
+  }
 }

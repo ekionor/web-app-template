@@ -47,6 +47,7 @@ const validUser = {
 const postUser = (user = validUser) => {
   return request(app).post("/api/1.0/users").send(user);
 };
+
 describe("User Registration", () => {
   it("returns 200 when signup request is valid", async () => {
     const response = await postUser();
@@ -174,6 +175,14 @@ describe("User Registration", () => {
     const users = await User.findAll();
     expect(users.length).toBe(0);
   });
+
+  it("returns validation Failure message in error response body when validation fails", async () => {
+    const response = await postUser({
+      ...validUser,
+      username: null,
+    });
+    expect(response.body.message).toBe("Validation Failure");
+  });
 });
 
 describe("Account activation", () => {
@@ -197,5 +206,90 @@ describe("Account activation", () => {
       .send();
     [user] = await User.findAll();
     expect(user.activationToken).toBeFalsy();
+  });
+
+  it("does not activate user when token is not valid", async () => {
+    await postUser();
+    const token = "invalid";
+    await request(app)
+      .post("/api/1.0/users/token/" + token)
+      .send();
+    [user] = await User.findAll();
+    expect(user.inactive).toBe(true);
+  });
+
+  it("returns bad request when token is wrong", async () => {
+    await postUser();
+    const token = "invalid";
+    const response = await request(app)
+      .post("/api/1.0/users/token/" + token)
+      .send();
+    expect(response.status).toBe(400);
+  });
+
+  it("returns This account is either active or the token is invalid when token is wrong", async () => {
+    await postUser();
+    const token = "invalid";
+    const response = await request(app)
+      .post("/api/1.0/users/token/" + token)
+      .send();
+    expect(response.body.message).toBe(
+      "This account is either active or the token is invalid",
+    );
+  });
+
+  it("returns Account is activated when token is correct", async () => {
+    await postUser();
+    let [user] = await User.findAll();
+    const token = user.activationToken;
+    const response = await request(app)
+      .post("/api/1.0/users/token/" + token)
+      .send();
+    expect(response.body.message).toBe("Account is activated");
+  });
+});
+
+describe("Error model", () => {
+  it("returns path, timestamp, message and validationErrors when validation fails", async () => {
+    const response = await postUser({ ...validUser, username: null });
+    expect(Object.keys(response.body)).toEqual([
+      "path",
+      "timestamp",
+      "message",
+      "validationErrors",
+    ]);
+  });
+
+  it("returns path, timestamp and message when request fails other than validation errors", async () => {
+    const token = "invalid";
+    const response = await request(app)
+      .post("/api/1.0/users/token/" + token)
+      .send();
+    expect(Object.keys(response.body)).toEqual([
+      "path",
+      "timestamp",
+      "message",
+    ]);
+  });
+
+  it("returns path in error body", async () => {
+    const token = "invalid";
+    const response = await request(app)
+      .post("/api/1.0/users/token/" + token)
+      .send();
+    expect(response.body.path).toEqual("/api/1.0/users/token/" + token);
+  });
+
+  it("returns timestamp in milliseconds withing 5 seconds values in error body", async () => {
+    const nowInMillis = new Date().getTime();
+    const fiveSecondsLaterInMillis = nowInMillis + 5 * 1000;
+    const token = "invalid";
+    const response = await request(app)
+      .post("/api/1.0/users/token/" + token)
+      .send();
+    expect(response.body.timestamp).toBeGreaterThanOrEqual(nowInMillis);
+    expect(response.body.timestamp).toBeLessThanOrEqual(
+      fiveSecondsLaterInMillis,
+    );
   });
 });
