@@ -6,6 +6,9 @@ const ValidationException = require("../error/ValidationException");
 const pagination = require("../middleware/pagination");
 const UserNotFoundException = require("./UserNotFoundException");
 const User = require("./User");
+const ForbiddenException = require("../error/ForbiddenException");
+const bcrypt = require("bcrypt");
+const basicAuthentication = require("../middleware/basicAuthentication");
 
 router.post(
   "/api/1.0/users",
@@ -52,11 +55,17 @@ router.post("/api/1.0/users/token/:token", async (req, res, next) => {
   }
 });
 
-router.get("/api/1.0/users", pagination, async (req, res) => {
-  const { page, size } = req.pagination;
-  const users = await UserService.getUsers(page, size);
-  res.send(users);
-});
+router.get(
+  "/api/1.0/users",
+  pagination,
+  basicAuthentication,
+  async (req, res) => {
+    const authenticatedUser = req.authenticatedUser;
+    const { page, size } = req.pagination;
+    const users = await UserService.getUsers(page, size, authenticatedUser);
+    res.send(users);
+  },
+);
 
 router.get("/api/1.0/users/:id", async (req, res, next) => {
   try {
@@ -66,5 +75,20 @@ router.get("/api/1.0/users/:id", async (req, res, next) => {
     next(err);
   }
 });
+
+router.put(
+  "/api/1.0/users/:id",
+  basicAuthentication,
+  async (req, res, next) => {
+    const authenticatedUser = req.authenticatedUser;
+    if (!authenticatedUser || authenticatedUser.id != req.params.id) {
+      return next(
+        new ForbiddenException("You are not authorized to update this user"),
+      );
+    }
+    await UserService.updateUser(req.params.id, req.body);
+    res.send();
+  },
+);
 
 module.exports = router;

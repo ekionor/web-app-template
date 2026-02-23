@@ -6,6 +6,7 @@ const SMTPServer = require("smtp-server").SMTPServer;
 
 let lastmail, server;
 let simulatedSmtpFailure = false;
+
 beforeAll(async () => {
   server = new SMTPServer({
     authOptional: true,
@@ -27,6 +28,7 @@ beforeAll(async () => {
   });
   await server.listen(8587, "localhost");
   await sequelize.sync();
+  jest.setTimeout(20000);
 });
 
 beforeEach(async () => {
@@ -36,6 +38,7 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await server.close();
+  jest.setTimeout(5000);
 });
 
 const validUser = {

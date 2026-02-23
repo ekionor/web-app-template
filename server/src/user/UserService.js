@@ -1,4 +1,5 @@
 const User = require("./User");
+const Sequelize = require("sequelize");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const EmailService = require("../email/EmailService");
@@ -45,9 +46,10 @@ const activate = async (token) => {
   await user.save();
 };
 
-const getUsers = async (page, size) => {
+const getUsers = async (page, size, authenticatedUser) => {
+  const id = authenticatedUser ? authenticatedUser.id : 0;
   const usersWithCount = await User.findAndCountAll({
-    where: { inactive: false },
+    where: { inactive: false, id: { [Sequelize.Op.not]: id } },
     attributes: ["id", "username", "email"],
     limit: size,
     offset: page * size,
@@ -71,4 +73,17 @@ const getUserById = async (id) => {
   return user;
 };
 
-module.exports = { save, findByEmail, activate, getUsers, getUserById };
+const updateUser = async (id, body) => {
+  const user = await User.findOne({ where: { id } });
+  user.username = body.username;
+  await user.save();
+};
+
+module.exports = {
+  save,
+  findByEmail,
+  activate,
+  getUsers,
+  getUserById,
+  updateUser,
+};
