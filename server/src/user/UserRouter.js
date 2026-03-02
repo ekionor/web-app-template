@@ -7,8 +7,6 @@ const pagination = require("../middleware/pagination");
 const UserNotFoundException = require("./UserNotFoundException");
 const User = require("./User");
 const ForbiddenException = require("../error/ForbiddenException");
-const bcrypt = require("bcrypt");
-const basicAuthentication = require("../middleware/basicAuthentication");
 
 router.post(
   "/api/1.0/users",
@@ -58,7 +56,7 @@ router.post("/api/1.0/users/token/:token", async (req, res, next) => {
 router.get(
   "/api/1.0/users",
   pagination,
-  basicAuthentication,
+
   async (req, res) => {
     const authenticatedUser = req.authenticatedUser;
     const { page, size } = req.pagination;
@@ -78,7 +76,7 @@ router.get("/api/1.0/users/:id", async (req, res, next) => {
 
 router.put(
   "/api/1.0/users/:id",
-  basicAuthentication,
+
   async (req, res, next) => {
     const authenticatedUser = req.authenticatedUser;
     if (!authenticatedUser || authenticatedUser.id != req.params.id) {
@@ -87,6 +85,21 @@ router.put(
       );
     }
     await UserService.updateUser(req.params.id, req.body);
+    res.send();
+  },
+);
+
+router.delete(
+  "/api/1.0/users/:id",
+
+  async (req, res, next) => {
+    const authenticatedUser = req.authenticatedUser;
+    if (!authenticatedUser || authenticatedUser.id != req.params.id) {
+      return next(
+        new ForbiddenException("You are not authorized to delete this user"),
+      );
+    }
+    await UserService.deleteUser(req.params.id);
     res.send();
   },
 );

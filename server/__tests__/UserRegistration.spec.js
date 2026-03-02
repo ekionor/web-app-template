@@ -33,7 +33,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   simulatedSmtpFailure = false;
-  await User.destroy({ truncate: true });
+  await User.destroy({ truncate: { cascade: true } });
 });
 
 afterAll(async () => {
@@ -43,7 +43,7 @@ afterAll(async () => {
 
 const validUser = {
   username: "user1",
-  email: "user1@mail.com",
+  email: "user1@example.com",
   password: "P4ssword",
 };
 
@@ -72,7 +72,7 @@ describe("User Registration", () => {
     await postUser();
     const [user] = await User.findAll();
     expect(user.username).toBe("user1");
-    expect(user.email).toBe("user1@mail.com");
+    expect(user.email).toBe("user1@example.com");
   });
 
   it("hashes the password", async () => {
@@ -156,7 +156,7 @@ describe("User Registration", () => {
   it("sends an account activation email with activation token", async () => {
     await postUser();
     const [user] = await User.findAll();
-    expect(lastmail).toContain("user1@mail.com");
+    expect(lastmail).toContain("user1@example.com");
     expect(lastmail).toContain(user.activationToken);
   });
 

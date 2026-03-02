@@ -10,7 +10,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await User.destroy({ truncate: true });
+  await User.destroy({ truncate: { cascade: true } });
 });
 
 const activeUser = {
@@ -26,11 +26,20 @@ const addUser = async (user = { ...activeUser }) => {
   return await User.create(user);
 };
 
-const putUser = (id = 5, body = null, options = {}) => {
-  let agent = request(app).put(`/api/1.0/users/${id}`);
+const putUser = async (id = 5, body = null, options = {}) => {
+  let agent = request(app);
+
+  let token;
   if (options.auth) {
-    const { email, password } = options.auth;
-    agent = agent.auth(email, password);
+    const response = await agent.post("/api/1.0/auth").send(options.auth);
+    token = response.body.token;
+  }
+  agent = request(app).put(`/api/1.0/users/${id}`);
+  if (token) {
+    agent.set("Authorization", `Bearer ${token}`);
+  }
+  if (options.token) {
+    agent.set("Authorization", `Bearer ${options.token}`);
   }
   return agent.send(body);
 };
@@ -104,5 +113,10 @@ describe("User Update", () => {
     });
     const inDBUser = await User.findOne({ where: { id: savedUser.id } });
     expect(inDBUser.username).toBe("updated-user");
+  });
+
+  it("returns 403 when token is not valid", async () => {
+    const response = await putUser(5, null, { token: "123" });
+    expect(response.status).toBe(403);
   });
 });
