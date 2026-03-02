@@ -50,7 +50,7 @@ describe("User Update", () => {
     expect(response.status).toBe(403);
   });
 
-  it("returns error body with message You are not authorized to update this user when unaothorized request", async () => {
+  it("returns error body with message You are not authorized to update this user when unauthorized request", async () => {
     const nowInMillis = new Date().getTime();
     const response = await putUser();
     expect(response.body.path).toBe("/api/1.0/users/5");

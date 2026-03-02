@@ -7,6 +7,7 @@ const pagination = require("../middleware/pagination");
 const UserNotFoundException = require("./UserNotFoundException");
 const User = require("./User");
 const ForbiddenException = require("../error/ForbiddenException");
+const NotFoundException = require("../error/NotFoundException");
 
 router.post(
   "/api/1.0/users",
@@ -103,5 +104,28 @@ router.delete(
     res.send();
   },
 );
+
+router.post(
+  "/api/1.0/user/password",
+  check("email").isEmail().withMessage("Email is not valid"),
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return next(new ValidationException(errors.array()));
+    }
+    try {
+      await UserService.passwordResetRequest(req.body.email);
+      return res.send({
+        message: "Check your email for resetting your password",
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.put("/api/1.0/user/password", async (req, res) => {
+  res.status(403).send();
+});
 
 module.exports = router;

@@ -1,0 +1,18 @@
+module.exports = {
+  database: {
+    database: "users",
+    username: "my-db-user",
+    password: "my-db-password",
+    dialect: "sqlite",
+    storage: "./database.sqlite",
+    logging: false,
+  },
+  mail: {
+    host: "smtp.ethereal.email",
+    port: 587,
+    auth: {
+      user: "mabel.mcglynn14@ethereal.email",
+      pass: "FE8ZJYuPbJyUhVnMF1",
+    },
+  },
+};

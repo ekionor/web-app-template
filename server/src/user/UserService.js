@@ -8,6 +8,7 @@ const InvalidTokenException = require("./InvalidTokenException");
 const UserNotFoundException = require("./UserNotFoundException");
 const { randomString } = require("../shared/generator");
 const TokenService = require("../auth/TokenService");
+const NotFoundException = require("../error/NotFoundException");
 
 const save = async (body) => {
   const { username, email, password } = body;
@@ -68,7 +69,7 @@ const getUserById = async (id) => {
     attributes: ["id", "username", "email"],
   });
   if (!user) {
-    throw new UserNotFoundException();
+    throw new NotFoundException("User not found");
   }
   return user;
 };
@@ -83,6 +84,20 @@ const deleteUser = async (id) => {
   await User.destroy({ where: { id } });
 };
 
+const passwordResetRequest = async (email) => {
+  const user = await findByEmail(email);
+  if (!user) {
+    throw new NotFoundException("Email not found");
+  }
+  user.passwordResetToken = randomString(16);
+  await user.save();
+  try {
+    await EmailService.sendPasswordReset(email, user.passwordResetToken);
+  } catch (err) {
+    throw new EmailException();
+  }
+};
+
 module.exports = {
   save,
   findByEmail,
@@ -91,4 +106,5 @@ module.exports = {
   getUserById,
   updateUser,
   deleteUser,
+  passwordResetRequest,
 };
