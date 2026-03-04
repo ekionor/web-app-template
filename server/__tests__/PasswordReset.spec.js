@@ -7,6 +7,7 @@ const AuthenticationRouter = require("../src/auth/AuthenticationRouter");
 const SMTPServer = require("smtp-server").SMTPServer;
 const config = require("config");
 const { passwordResetRequest } = require("../src/user/UserService");
+const Token = require("../src/auth/Token");
 
 let lastMail, server;
 let simulatedSmtpFailure = false;
@@ -61,6 +62,14 @@ const addUser = async (user = { ...activeUser }) => {
 const postPasswordReset = async (email = "user1@example.com", options = {}) => {
   const agent = request(app).post("/api/1.0/user/password");
   return agent.send({ email });
+};
+
+const putPasswordUpdate = (body = {}, options = {}) => {
+  const agent = request(app)
+    .put("/api/1.0/user/password")
+    .send({ password: "P4ssword", passwordResetToken: "token" });
+
+  return agent.send(body);
 };
 
 describe("Password Reset Flow", () => {
@@ -123,9 +132,87 @@ describe("Password Reset Flow", () => {
 
 describe("Password update", () => {
   it("returns 403 when password update request does not have the valid password reset token", async () => {
-    const response = await request(app)
-      .put("/api/1.0/user/password")
-      .send({ password: "P4ssword", passwordResetToken: "token" });
+    const response = await putPasswordUpdate({
+      password: "P4ssword",
+      passwordResetToken: "token",
+    });
     expect(response.status).toBe(403);
+  });
+
+  it("returns error body when trying to update with invalid token", async () => {
+    const nowInMillis = new Date().getTime();
+    const response = await putPasswordUpdate();
+    expect(response.body.path).toBe("/api/1.0/user/password");
+    expect(response.body.timestamp).toBeGreaterThan(nowInMillis);
+    expect(response.body.message).toBe(
+      "You are not authorized to update your password",
+    );
+  });
+
+  it("returns 200 when valid password is sent with valid reset token", async () => {
+    const user = await addUser();
+    user.passwordResetToken = "test-token";
+    await user.save();
+    const response = await putPasswordUpdate({
+      password: "N3w-password",
+      passwordResetToken: "test-token",
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it("updates the password in DB when the request is valid", async () => {
+    const user = await addUser();
+    user.passwordResetToken = "test-token";
+    await user.save();
+    await putPasswordUpdate({
+      password: "N3w-password",
+      passwordResetToken: "test-token",
+    });
+    const userInDB = await User.findOne({ where: { email: user.email } });
+    expect(userInDB.password).not.toEqual(user.password);
+  });
+
+  it("clears the reset token in DB when the request is valid", async () => {
+    const user = await addUser();
+    user.passwordResetToken = "test-token";
+    await user.save();
+    await putPasswordUpdate({
+      password: "N3w-password",
+      passwordResetToken: "test-token",
+    });
+    const userInDB = await User.findOne({ where: { email: user.email } });
+    expect(userInDB.passwordResetToken).toBeFalsy();
+  });
+
+  it("activates the account and clears activation token if the account was inactive before valid password reset", async () => {
+    const user = await addUser();
+    user.passwordResetToken = "test-token";
+    user.activationToken = "activation-token";
+    user.inactive = true;
+    await user.save();
+    await putPasswordUpdate({
+      password: "N3w-password",
+      passwordResetToken: "test-token",
+    });
+    const userInDB = await User.findOne({ where: { email: user.email } });
+    expect(userInDB.activationToken).toBeFalsy();
+    expect(userInDB.inactive).toBe(false);
+  });
+
+  it("clears all tokens of user after valid password reset", async () => {
+    const user = await addUser();
+    user.passwordResetToken = "test-token";
+    await user.save();
+    await Token.create({
+      token: "token1",
+      userId: user.id,
+      lastUsedAt: Date.now(),
+    });
+    await putPasswordUpdate({
+      password: "N3w-password",
+      passwordResetToken: "test-token",
+    });
+    const tokens = await Token.findAll({ where: { userId: user.id } });
+    expect(tokens.length).toBe(0);
   });
 });

@@ -124,8 +124,26 @@ router.post(
   },
 );
 
-router.put("/api/1.0/user/password", async (req, res) => {
-  res.status(403).send();
-});
+const passwordResetTokenValidator = async (req, res, next) => {
+  const user = await UserService.findByPasswordResetToken(
+    req.body.passwordResetToken,
+  );
+
+  if (!user) {
+    return next(
+      new ForbiddenException("You are not authorized to update your password"),
+    );
+  }
+  next();
+};
+
+router.put(
+  "/api/1.0/user/password",
+  passwordResetTokenValidator,
+  async (req, res, next) => {
+    await UserService.updatePassword(req.body);
+    res.send();
+  },
+);
 
 module.exports = router;
