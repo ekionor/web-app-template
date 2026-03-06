@@ -33,9 +33,9 @@ const getUsers = (options = {}) => {
 };
 
 const addUsers = async (activeUserCount, inactiveUserCount = 0) => {
-  const hash = await bcrypt.hashSync("P4ssword", 10);
+  const hash = bcrypt.hashSync("P4ssword", 10);
   for (let i = 0; i < activeUserCount + inactiveUserCount; i++) {
-    User.create({
+    await User.create({
       username: `user${i + 1}`,
       email: `user${i + 1}@example.com`,
       inactive: i >= activeUserCount,
@@ -72,11 +72,11 @@ describe("User Listing", () => {
     expect(response.body.content.length).toBe(6);
   });
 
-  it("returns only id, username and email in content for each user", async () => {
+  it("returns only id, username, email and image in content for each user", async () => {
     await addUsers(1);
     const response = await getUsers();
     const user = response.body.content[0];
-    expect(Object.keys(user)).toEqual(["id", "username", "email"]);
+    expect(Object.keys(user)).toEqual(["id", "username", "email", "image"]);
   });
 
   it("returns 2 as totalPages when there are 15 active and 7 inactive users in database", async () => {
@@ -172,14 +172,19 @@ describe("Get User", () => {
     expect(response.status).toBe(200);
   });
 
-  it("returns id, username and email in response body when user exists", async () => {
+  it("returns id, username, email and image in response body when user exists", async () => {
     const user = await User.create({
       username: "user1",
       email: "user1@example.com",
       inactive: false,
     });
     const response = await getUser(user.id);
-    expect(Object.keys(response.body)).toEqual(["id", "username", "email"]);
+    expect(Object.keys(response.body)).toEqual([
+      "id",
+      "username",
+      "email",
+      "image",
+    ]);
   });
 
   it("returns 404 when the user is inactive", async () => {

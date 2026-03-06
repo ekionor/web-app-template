@@ -28,7 +28,12 @@ router.post(
       return next(new ForbiddenException());
     }
     const token = await TokenService.createToken(user);
-    res.send({ id: user.id, username: user.username, token });
+    res.send({
+      id: user.id,
+      username: user.username,
+      image: user.image,
+      token,
+    });
   },
 );
 

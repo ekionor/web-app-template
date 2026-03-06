@@ -8,13 +8,14 @@
   "main": "index.js",
   "scripts": {
     "start": "cross-env NODE_ENV=development nodemon index",
-    "test": "cross-env NODE_ENV=test jest --watch"
+    "test": "cross-env NODE_ENV=test jest --watch --runInBand"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "config": "^4.2.1",
     "express": "^5.2.1",
     "express-validator": "^7.3.1",
+    "file-type": "^16.5.4",
     "nodemailer": "^8.0.1",
     "sequelize": "^6.37.7",
     "sqlite3": "^5.1.7"
@@ -33,6 +34,9 @@
     "supertest": "^7.2.2"
   },
   "jest": {
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.js"
+    ],
     "watchPlugins": [
       "jest-watch-typeahead/filename",
       "jest-watch-typeahead/testname"

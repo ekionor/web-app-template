@@ -1,11 +1,23 @@
 const express = require("express");
-const app = express();
 const UserRouter = require("./user/UserRouter");
 const AuthenticationRouter = require("./auth/AuthenticationRouter");
 const errorHandler = require("./error/ErrorHandler");
 const tokenAuthentication = require("./middleware/tokenAuthentication");
+const FileService = require("../src/file/FileService");
+const path = require("path");
+const config = require("config");
 
-app.use(express.json());
+const { uploadDir, profileDir } = config;
+const profileFolder = path.join(".", uploadDir, profileDir);
+const ONE_YEAR_IN_MS = 365 * 24 * 60 * 60 * 1000;
+
+FileService.createFolders();
+
+const app = express();
+
+app.use(express.json({ limit: "3mb" }));
+
+app.use("/images", express.static(profileFolder, { maxAge: ONE_YEAR_IN_MS }));
 
 app.use(tokenAuthentication);
 

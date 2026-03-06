@@ -9,6 +9,7 @@ const UserNotFoundException = require("./UserNotFoundException");
 const { randomString } = require("../shared/generator");
 const TokenService = require("../auth/TokenService");
 const NotFoundException = require("../error/NotFoundException");
+const FileService = require("../file/FileService");
 
 const save = async (body) => {
   const { username, email, password } = body;
@@ -51,7 +52,7 @@ const getUsers = async (page, size, authenticatedUser) => {
       inactive: false,
       id: { [Sequelize.Op.not]: id },
     },
-    attributes: ["id", "username", "email"],
+    attributes: ["id", "username", "email", "image"],
     limit: size,
     offset: page * size,
   });
@@ -66,7 +67,7 @@ const getUsers = async (page, size, authenticatedUser) => {
 const getUserById = async (id) => {
   const user = await User.findOne({
     where: { id: id, inactive: false },
-    attributes: ["id", "username", "email"],
+    attributes: ["id", "username", "email", "image"],
   });
   if (!user) {
     throw new NotFoundException("User not found");
@@ -77,7 +78,19 @@ const getUserById = async (id) => {
 const updateUser = async (id, body) => {
   const user = await User.findOne({ where: { id } });
   user.username = body.username;
+  if (body.image) {
+    if (user.image) {
+      await FileService.deleteProfileImage(user.image);
+    }
+    user.image = await FileService.saveProfileImage(body.image);
+  }
   await user.save();
+  return {
+    id,
+    username: user.username,
+    email: user.email,
+    image: user.image,
+  };
 };
 
 const deleteUser = async (id) => {
